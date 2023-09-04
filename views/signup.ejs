@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h2>Signup</h2>
+    <form action="/signup" method="POST">
+      <input type="text" name="nama" placeholder="Nama" required />
+      <input type="date" name="tanggal_lahir" required />
+      <input type="radio" name="gender" value="laki laki" required /> Laki-laki
+      <input type="radio" name="gender" value="perempuan" required /> Perempuan
+      <input
+        type="text"
+        name="nomor_ponsel"
+        placeholder="Nomor Ponsel"
+        required />
+      <input type="email" name="email" placeholder="Email" required />
+      <input type="text" name="alamat" placeholder="Alamat" required />
+      <input type="password" name="password" placeholder="Password" required />
+      <button type="submit">Signup</button>
+    </form>
+    <p>Already have an account? <a href="/login">Login</a></p>
+  </body>
+</html>
