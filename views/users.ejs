@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daftar Pengguna</title>
+  </head>
+  <body>
+    <h1>Daftar Pengguna</h1>
+    <ul>
+      <% users.forEach(function(user) { %>
+      <li><%= user.name %></li>
+      <% }); %>
+    </ul>
+
+    <h2>Tambah Pengguna Baru</h2>
+    <form method="post" action="/users">
+      <label for="name">Nama Pengguna:</label>
+      <input type="text" name="name" id="name" required />
+      <button type="submit">Tambah</button>
+    </form>
+  </body>
+</html>

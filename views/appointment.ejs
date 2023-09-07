@@ -11,12 +11,29 @@
       Selamat datang, <%= nama %>! Anda dapat mengakses halaman appointment.
     </p>
     <form method="POST" action="/appointment">
+      <label for="id_pasien">ID Pasien:</label>
+      <input
+        type="text"
+        name="id_pasien"
+        id="id_pasien"
+        value="<%= id_pasien %>"
+        readonly /><br />
+
       <label for="nama_pasien">Nama Anda:</label>
       <input
         type="text"
         name="nama_pasien"
         id="nama_pasien"
         value="<%= nama %>"
+        readonly /><br />
+
+      <!-- Tambahkan input email_pasien yang akan diisi otomatis -->
+      <label for="email_pasien">Email Pasien:</label>
+      <input
+        type="text"
+        name="email_pasien"
+        id="email_pasien"
+        value="<%= email_pasien %>"
         readonly /><br />
 
       <label for="nama_psikolog">Nama Psikolog:</label>
@@ -39,5 +56,6 @@
 
       <input type="submit" value="Buat Appointment" />
     </form>
+    <p><a href="/dashboard">Kembali</a></p>
   </body>
 </html>

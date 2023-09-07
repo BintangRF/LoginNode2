@@ -29,19 +29,31 @@ app.use(
 app.set("view engine", "ejs");
 app.use(express.static(__dirname + "/views"));
 
+// Middleware untuk memeriksa apakah pengguna sudah login
+const checkLoggedIn = (req, res, next) => {
+  if (req.session.userId) {
+    next();
+  } else {
+    res.redirect("/login");
+  }
+};
+
 // Routing
 app.get("/", (req, res) => {
   res.redirect("/dashboard");
 });
 
+// Route Login
 app.get("/login", (req, res) => {
   res.render("login.ejs");
 });
 
+// Route Signup
 app.get("/signup", (req, res) => {
   res.render("signup.ejs");
 });
 
+// Route Dashboard
 app.get("/dashboard", (req, res) => {
   if (req.session.userId) {
     const userId = req.session.userId;
@@ -61,15 +73,21 @@ app.get("/dashboard", (req, res) => {
 });
 
 // Route untuk halaman appointment
+// Route untuk halaman appointment
 app.get("/appointment", (req, res) => {
   if (req.session.userId) {
-    // Render halaman appointment jika pengguna sudah login
     const userId = req.session.userId;
-    const query = "SELECT nama_pasien FROM tb_pasien WHERE id_pasien = ?";
+    const query =
+      "SELECT id_pasien, nama_pasien, email_pasien FROM tb_pasien WHERE id_pasien = ?";
+
     db.query(query, [userId], (err, results) => {
-      if (err) throw err;
+      if (err) {
+        throw err;
+      }
       if (results.length === 1) {
+        const id_pasien = results[0].id_pasien;
         const nama_pasien = results[0].nama_pasien;
+        const email_pasien = results[0].email_pasien;
 
         // Ambil daftar nama psikolog dari database
         db.query(
@@ -78,15 +96,21 @@ app.get("/appointment", (req, res) => {
             if (err) {
               throw err;
             }
-            // Render halaman appointment dengan data nama pasien dan psikolog
-            res.render("appointment", { nama: nama_pasien, psikolog });
+
+            // Render halaman appointment dengan data nama pasien, psikolog, email_pasien, dan id_pasien
+            res.render("appointment", {
+              nama: nama_pasien,
+              psikolog,
+              email_pasien,
+              id_pasien,
+            });
           }
         );
       }
     });
   } else {
     // Jika pengguna belum login, kirimkan pesan alert dan arahkan ke halaman login
-    const alertMessage = "Anda belum login. Silahkan login terlebih dahulu.";
+    const alertMessage = "Anda belum login. Silakan login terlebih dahulu.";
     const loginRedirect = "/login";
 
     res.send(`
@@ -98,6 +122,7 @@ app.get("/appointment", (req, res) => {
   }
 });
 
+// Route Logout
 app.get("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) throw err;
@@ -119,7 +144,7 @@ app.post("/signup", (req, res) => {
     tanggal_lahir,
     gender,
     nomor_ponsel,
-    email,
+    email_pasien,
     alamat,
     password,
   } = req.body;
@@ -130,9 +155,9 @@ app.post("/signup", (req, res) => {
     tanggal_lahir,
     gender,
     nomor_ponsel,
-    email,
+    email_pasien,
     alamat,
-    password, // Simpan kata sandi dalam teks biasa
+    password, // Simpan kata sandi dalam teks biasa (tanpa hashing)
   };
 
   const query = "INSERT INTO tb_pasien SET ?";
@@ -155,11 +180,12 @@ app.post("/signup", (req, res) => {
 //
 
 // LOGIN
+// LOGIN
 app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  const query = "SELECT * FROM tb_pasien WHERE email = ?";
+  const { email_pasien, password } = req.body;
+  const query = "SELECT * FROM tb_pasien WHERE email_pasien = ?";
 
-  db.query(query, [email], (err, results) => {
+  db.query(query, [email_pasien], (err, results) => {
     if (err) throw err;
 
     if (results.length === 1) {
@@ -168,7 +194,8 @@ app.post("/login", (req, res) => {
         // Memeriksa kata sandi tanpa hashing
         // Sesuaikan sesi pengguna di sini
         req.session.userId = user.id_pasien;
-        req.session.nama_pasien = user.nama_pasien; // Menyimpan nama pengguna dalam sesi
+        req.session.nama_pasien = user.nama_pasien;
+        req.session.email_pasien = user.email_pasien; // Menyimpan email_pasien dalam sesi
         res.redirect("/dashboard");
       } else {
         res.send(
@@ -182,73 +209,80 @@ app.post("/login", (req, res) => {
     }
   });
 });
+
 //
 
 // APPOINTMENT
 app.post("/appointment", (req, res) => {
   const { nama_pasien, nama_psikolog, tanggal, waktu, keluhan } = req.body;
+  const email_pasien = req.session.email_pasien; // Mengambil email_pasien dari sesi
 
   // Query SQL untuk mengambil id_pasien berdasarkan nama_pasien
   const getIdPasienQuery =
-    "SELECT id_pasien FROM tb_pasien WHERE nama_pasien = ?";
+    "SELECT id_pasien FROM tb_pasien WHERE nama_pasien = ? AND email_pasien = ?";
 
-  db.query(getIdPasienQuery, [nama_pasien], (err, pasienResults) => {
-    if (err) {
-      throw err;
-    }
-
-    if (pasienResults.length === 0) {
-      res.status(400).send("Nama pasien tidak ditemukan"); // Handle jika nama pasien tidak ditemukan
-      return;
-    }
-
-    const id_pasien = pasienResults[0].id_pasien; // Mengambil id_pasien yang sesuai
-
-    // Query SQL untuk mengambil id_psikolog berdasarkan nama_psikolog
-    const getIdPsikologQuery =
-      "SELECT nama_psikolog FROM tb_psikolog WHERE id_psikolog = ?";
-
-    db.query(getIdPsikologQuery, [nama_psikolog], (err, psikologResults) => {
+  db.query(
+    getIdPasienQuery,
+    [nama_pasien, email_pasien],
+    (err, pasienResults) => {
       if (err) {
         throw err;
       }
 
-      if (psikologResults.length === 0) {
-        res.status(400).send("Nama psikolog tidak ditemukan"); // Handle jika nama psikolog tidak ditemukan
+      if (pasienResults.length === 0) {
+        res.status(400).send("Nama pasien tidak ditemukan"); // Handle jika nama pasien tidak ditemukan
         return;
       }
 
-      const nama_psikolog = psikologResults[0].nama_psikolog; // Mengambil id_psikolog yang sesuai
+      const id_pasien = pasienResults[0].id_pasien; // Mengambil id_pasien yang sesuai
 
-      // Simpan data appointment ke database dengan id_pasien dan id_psikolog yang sesuai
-      const appointment = {
-        id_pasien,
-        nama_pasien,
-        nama_psikolog,
-        tanggal,
-        waktu,
-        keluhan,
-      };
+      // Query SQL untuk mengambil id_psikolog berdasarkan nama_psikolog
+      const getIdPsikologQuery =
+        "SELECT nama_psikolog FROM tb_psikolog WHERE id_psikolog = ?";
 
-      // Query SQL untuk memasukkan data appointment ke dalam tb_appointment
-      const insertQuery = "INSERT INTO tb_appointment SET ?";
-
-      db.query(insertQuery, appointment, (err, result) => {
+      db.query(getIdPsikologQuery, [nama_psikolog], (err, psikologResults) => {
         if (err) {
           throw err;
         }
 
-        // Tampilkan pesan sukses dan arahkan kembali ke halaman dashboard
-        const successMessage = "Appointment berhasil";
-        res.send(`
+        if (psikologResults.length === 0) {
+          res.status(400).send("Nama psikolog tidak ditemukan"); // Handle jika nama psikolog tidak ditemukan
+          return;
+        }
+
+        const nama_psikolog = psikologResults[0].nama_psikolog; // Mengambil id_psikolog yang sesuai
+
+        // Simpan data appointment ke database dengan id_pasien, id_psikolog, dan email_pasien yang sesuai
+        const appointment = {
+          id_pasien,
+          email_pasien, // Memasukkan email_pasien yang sesuai
+          nama_pasien,
+          nama_psikolog,
+          tanggal,
+          waktu,
+          keluhan,
+        };
+
+        // Query SQL untuk memasukkan data appointment ke dalam tb_appointment
+        const insertQuery = "INSERT INTO tb_appointment SET ?";
+
+        db.query(insertQuery, appointment, (err, result) => {
+          if (err) {
+            throw err;
+          }
+
+          // Tampilkan pesan sukses dan arahkan kembali ke halaman dashboard
+          const successMessage = "Appointment berhasil";
+          res.send(`
           <script>
             alert('${successMessage}');
             window.location='/dashboard'; // Ubah '/dashboard' sesuai dengan URL dashboard Anda
           </script>
         `);
+        });
       });
-    });
-  });
+    }
+  );
 });
 
 //
