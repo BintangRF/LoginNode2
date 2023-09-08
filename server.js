@@ -73,7 +73,6 @@ app.get("/dashboard", (req, res) => {
 });
 
 // Route untuk halaman appointment
-// Route untuk halaman appointment
 app.get("/appointment", (req, res) => {
   if (req.session.userId) {
     const userId = req.session.userId;
@@ -236,7 +235,7 @@ app.post("/appointment", (req, res) => {
 
       const id_pasien = pasienResults[0].id_pasien; // Mengambil id_pasien yang sesuai
 
-      // Query SQL untuk mengambil id_psikolog berdasarkan nama_psikolog
+      // Query SQL untuk mengambil nama_psikolog berdasarkan id_psikolog
       const getIdPsikologQuery =
         "SELECT nama_psikolog FROM tb_psikolog WHERE id_psikolog = ?";
 
@@ -250,9 +249,9 @@ app.post("/appointment", (req, res) => {
           return;
         }
 
-        const nama_psikolog = psikologResults[0].nama_psikolog; // Mengambil id_psikolog yang sesuai
+        const nama_psikolog = psikologResults[0].nama_psikolog; // Mengambil nama_psikolog yang sesuai
 
-        // Simpan data appointment ke database dengan id_pasien, id_psikolog, dan email_pasien yang sesuai
+        // Simpan data appointment ke database dengan id_pasien, nama_psikolog, dan email_pasien yang sesuai
         const appointment = {
           id_pasien,
           email_pasien, // Memasukkan email_pasien yang sesuai
