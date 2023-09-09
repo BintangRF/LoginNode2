@@ -9,7 +9,10 @@
     <% if (nama) { %>
     <h1>Hi <%= nama %>,</h1>
     <h1>Selamat Datang di Dashboard</h1>
+    <!-- Tampilkan foto profil -->
+    <img src="data:image/jpeg;base64, <%= foto_pasien %>" alt="Foto Profil" width="100" height="100">
     <p><a href="/appointment">Appointment</a></p>
+    <p><a href="/profile">Pilih Profil</a></p>
     <p><a href="/logout">Logout</a></p>
     <% } else { %>
     <h1>Selamat Datang di Dashboard</h1>
@@ -17,5 +20,7 @@
     <p><a href="/login">Login</a></p>
     <p><a href="/signup">Signup</a></p>
     <% } %>
+  </body>
+</html>
   </body>
 </html>

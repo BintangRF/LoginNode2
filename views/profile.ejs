@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>Profil Pengguna</h1>
+    <!-- Form untuk mengganti foto profil -->
+    <img
+      src="data:image/jpeg;base64, <%= profileData.foto_pasien %>"
+      alt="Foto Profil"
+      width="100"
+      height="100" />
+    <p>ID: <%= profileData.id_pasien %></p>
+    <p>Nama: <%= profileData.nama_pasien %></p>
+    <p>Email: <%= profileData.email_pasien %></p>
+    <p>Alamat: <%= profileData.alamat %></p>
+    <p>Nomor Ponsel: <%= profileData.nomor_ponsel %></p>
+    <a href="/edit_profile">Edit Profil</a>
+
+    <br />
+
+    <p><a href="/dashboard">Kembali ke Dashboard</a></p>
+  </body>
+</html>
