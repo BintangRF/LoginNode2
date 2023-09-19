@@ -1,10 +1,19 @@
 const express = require("express");
+const ejs = require("ejs");
+const path = require("path");
 const session = require("express-session");
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
 const app = express();
 const multer = require("multer");
 const fs = require("fs");
+const moment = require("moment-timezone");
+
+// Set zona waktu server ke "Asia/Jakarta"
+moment.tz.setDefault("Asia/Jakarta");
+
+// Contoh penggunaan untuk memformat tanggal
+const tanggal = moment().format("dddd, D MMMM YYYY");
 
 // Konfigurasi koneksi MySQL
 const db = mysql.createConnection({
@@ -28,8 +37,11 @@ app.use(
     saveUninitialized: true,
   })
 );
-app.set("view engine", "ejs");
-app.use(express.static(__dirname + "/views"));
+
+app.use(express.static(path.join(__dirname, "views")));
+
+app.engine("html", require("ejs").renderFile); // Menggunakan ejs sebagai view engine untuk file HTML
+app.set("view engine", "html");
 
 // Middleware untuk memeriksa apakah pengguna sudah login
 const checkLoggedIn = (req, res, next) => {
@@ -68,12 +80,12 @@ app.get("/", (req, res) => {
 
 // Route Login
 app.get("/login", (req, res) => {
-  res.render("login.ejs");
+  res.render("login");
 });
 
 // Route Signup
 app.get("/signup", (req, res) => {
-  res.render("signup.ejs");
+  res.render("signup");
 });
 
 // Route Dashboard
@@ -87,7 +99,7 @@ app.get("/dashboard", (req, res) => {
       if (results.length === 1) {
         const { nama_pasien, foto_pasien } = results[0];
         const id_pasien = userId;
-        res.render("dashboard.ejs", {
+        res.render("dashboard", {
           nama: nama_pasien,
           id_pasien: id_pasien,
           foto_pasien: foto_pasien, // Menambahkan foto_pasien ke konteks template
@@ -97,7 +109,7 @@ app.get("/dashboard", (req, res) => {
       }
     });
   } else {
-    res.render("dashboard.ejs", {
+    res.render("dashboard", {
       nama: null,
       id_pasien: null,
       foto_pasien: null,
@@ -157,6 +169,7 @@ app.get("/appointment", (req, res) => {
 // Route untuk halaman profil
 app.get("/profile", checkLoggedIn, (req, res) => {
   const id_pasien = req.session.userId;
+  const email_pasien = req.session.email_pasien;
 
   // Query SQL untuk mengambil data pengguna dari tb_pasien
   const query =
@@ -170,8 +183,53 @@ app.get("/profile", checkLoggedIn, (req, res) => {
     if (results.length === 1) {
       const profileData = results[0];
 
-      // Render halaman profil dengan data pengguna
-      res.render("profile.ejs", { profileData });
+      // Query SQL untuk mengambil data pembayaran dari tb_pembayaran sesuai dengan id_pasien dan email_pasien
+      const pembayaranQuery =
+        "SELECT jumlah_biaya, tanggal_bayar,status_bayar, metode_pembayaran FROM tb_pembayaran WHERE id_pasien = ? AND email_pasien = ?";
+
+      db.query(
+        pembayaranQuery,
+        [id_pasien, email_pasien],
+        (err, pembayaranResults) => {
+          if (err) {
+            throw err;
+          }
+
+          // Mengambil data pembayaran jika ada
+          if (pembayaranResults.length === 1) {
+            const pembayaranData = pembayaranResults[0];
+            profileData.jumlah_bayar = pembayaranData.jumlah_biaya;
+            profileData.status_bayar = pembayaranData.status_bayar; // Ubah kolom status_bayar
+          } else {
+            profileData.jumlah_bayar = "Anda belum melakukan pembayaran";
+            profileData.status_bayar = "belum";
+          }
+
+          // Query SQL untuk mengambil data appointment dari tb_appointment
+          const appointmentQuery =
+            "SELECT tanggal, waktu FROM tb_appointment WHERE id_pasien = ?";
+
+          db.query(appointmentQuery, [id_pasien], (err, appointmentResults) => {
+            if (err) {
+              throw err;
+            }
+
+            // Mengambil data appointment jika ada
+            if (appointmentResults.length > 0) {
+              const appointmentData = appointmentResults[0];
+              profileData.tanggal = appointmentData.tanggal;
+              profileData.waktu = appointmentData.waktu;
+            } else {
+              // Jika tidak ada appointment, atur "jumlah bayar" dan "status bayar" sesuai ketentuan
+              profileData.jumlah_bayar = "-";
+              profileData.status_bayar = "-";
+            }
+
+            // Render halaman profil dengan data pengguna, data pembayaran, dan data appointment
+            res.render("profile", { profileData });
+          });
+        }
+      );
     }
   });
 });
@@ -193,7 +251,7 @@ app.get("/edit_profile", checkLoggedIn, (req, res) => {
       const profileData = results[0];
 
       // Render halaman edit profil dengan data pengguna
-      res.render("edit_profile.ejs", { profileData });
+      res.render("edit_profile", { profileData });
     }
   });
 });
@@ -203,6 +261,21 @@ app.get("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) throw err;
     res.redirect("/dashboard");
+  });
+});
+
+// Route untuk halaman pembayaran
+app.get("/pembayaran", checkLoggedIn, (req, res) => {
+  // Mengambil data pengguna dari sesi
+  const id_pasien = req.session.userId;
+  const nama_pasien = req.session.nama_pasien;
+  const email_pasien = req.session.email_pasien;
+
+  // Render halaman pembayaran dengan data pengguna
+  res.render("pembayaran", {
+    id_pasien: id_pasien,
+    nama_pasien: nama_pasien,
+    email_pasien: email_pasien,
   });
 });
 
@@ -266,8 +339,6 @@ app.post("/signup", upload.single("foto_pasien"), (req, res) => {
   });
 });
 
-//
-
 // LOGIN
 app.post("/login", (req, res) => {
   const { email_pasien, password } = req.body;
@@ -298,7 +369,33 @@ app.post("/login", (req, res) => {
   });
 });
 
-//
+// Profil
+app.post("/profile", checkLoggedIn, (req, res) => {
+  const id_pasien = req.session.userId;
+  const { tanggal, waktu } = req.body;
+
+  // Query SQL untuk memperbarui tanggal dan waktu appointment di tb_appointment
+  const updateQuery =
+    "UPDATE tb_appointment SET tanggal = ?, waktu = ? WHERE id_pasien = ?";
+
+  db.query(updateQuery, [tanggal, waktu, id_pasien], (err, result) => {
+    if (err) {
+      console.error("Kesalahan saat memperbarui appointment:", err);
+      return res
+        .status(500)
+        .send("Terjadi kesalahan saat memperbarui appointment.");
+    }
+
+    // Tampilkan pesan sukses dan arahkan kembali ke halaman profil
+    const successMessage = "Appointment berhasil diperbarui";
+    res.send(`
+      <script>
+        alert('${successMessage}');
+        window.location='/profile'; // Redirect ke halaman profil
+      </script>
+    `);
+  });
+});
 
 // Update Profil
 app.post(
@@ -346,8 +443,6 @@ app.post(
     );
   }
 );
-
-//
 
 // APPOINTMENT
 app.post("/appointment", (req, res) => {
@@ -422,4 +517,42 @@ app.post("/appointment", (req, res) => {
   );
 });
 
-//
+// Route untuk memproses pembayaran
+app.post("/proses_pembayaran", checkLoggedIn, (req, res) => {
+  const id_pasien = req.body.id_pasien;
+  const nama_pasien = req.body.nama_pasien;
+  const email_pasien = req.body.email_pasien;
+  const jumlah_biaya = req.body.jumlah_biaya;
+  const metode_pembayaran = req.body.metode_pembayaran;
+
+  // Lakukan validasi dan pemrosesan pembayaran sesuai kebutuhan
+
+  // Simpan data pembayaran ke tabel tb_pembayaran
+  const tanggal_bayar = new Date();
+  const pembayaran = {
+    id_pasien,
+    nama_pasien,
+    email_pasien,
+    jumlah_biaya,
+    tanggal_bayar,
+    metode_pembayaran,
+  };
+
+  const insertPembayaranQuery = "INSERT INTO tb_pembayaran SET ?";
+  db.query(insertPembayaranQuery, pembayaran, (err, result) => {
+    if (err) {
+      console.error("Kesalahan saat menyimpan data pembayaran:", err);
+      // Handle kesalahan penyimpanan data pembayaran
+      res.status(500).send("Terjadi kesalahan saat menyimpan data pembayaran.");
+    } else {
+      // Tampilkan pesan sukses dan arahkan pengguna ke halaman lain jika diperlukan
+      const successMessage = "Pembayaran berhasil";
+      res.send(`
+        <script>
+          alert('${successMessage}');
+          window.location='/dashboard'; // Ubah '/dashboard' sesuai dengan URL yang sesuai
+        </script>
+      `);
+    }
+  });
+});
